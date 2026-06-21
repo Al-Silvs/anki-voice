@@ -170,9 +170,20 @@ function detectRating(text) {
 }
 
 // ── SPEECH SYNTHESIS ──────────────────────────────────────────────────────────
+const PREFERRED_VOICE = 'Jamie'; // change to match your downloaded voice name
+
+function getVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find(v => v.name.includes(PREFERRED_VOICE))
+      || voices.find(v => v.lang.startsWith('en') && v.localService)
+      || voices[0]
+      || null;
+}
+
 function speak(text, onEnd) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
+  u.voice = getVoice();
   u.rate = 0.88; u.lang = 'en-US';
   u.onstart = () => { isSpeakingFlag = true; };
   u.onend = () => {

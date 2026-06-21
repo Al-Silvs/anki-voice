@@ -170,20 +170,27 @@ function detectRating(text) {
 }
 
 // ── SPEECH SYNTHESIS ──────────────────────────────────────────────────────────
-const PREFERRED_VOICE = 'Jamie (Premium)'; // change to match your downloaded voice name
+const PREFERRED_VOICE = 'Jamie'; // change to match your downloaded voice name
+let selectedVoice = null;
 
-function getVoice() {
+function pickVoice() {
   const voices = window.speechSynthesis.getVoices();
-  return voices.find(v => v.name.includes(PREFERRED_VOICE))
-      || voices.find(v => v.lang.startsWith('en') && v.localService)
-      || voices[0]
-      || null;
+  if (!voices.length) return;
+  selectedVoice = voices.find(v => v.name.includes(PREFERRED_VOICE))
+               || voices.find(v => v.lang.startsWith('en') && v.localService)
+               || voices[0]
+               || null;
 }
+
+// iOS loads voices asynchronously — pick on change and also try immediately
+window.speechSynthesis.onvoiceschanged = pickVoice;
+pickVoice();
 
 function speak(text, onEnd) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.voice = getVoice();
+  if (!selectedVoice) pickVoice(); // retry if not ready yet
+  u.voice = selectedVoice;
   u.rate = 0.88; u.lang = 'en-US';
   u.onstart = () => { isSpeakingFlag = true; };
   u.onend = () => {

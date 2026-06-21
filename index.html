@@ -109,6 +109,7 @@ body {
     <div id="full-sentence"></div>
   </div>
   <div id="heard-text"></div>
+  <button id="pause-btn" onclick="togglePause()" style="background:#1f2937;border:1px solid #374151;color:#9ca3af;border-radius:12px;padding:10px 28px;font-size:15px;cursor:pointer;margin-bottom:16px">⏸ Pause</button>
   <div class="rating-grid hidden" id="rating-grid">
     <button class="rbtn again" id="rb1" onclick="rate(1)">Again<span class="key">say "again"</span></button>
     <button class="rbtn hard"  id="rb2" onclick="rate(2)">Hard<span class="key">say "hard"</span></button>
@@ -307,7 +308,9 @@ function showCard() {
   cdEl.textContent = '';
   statusEl.textContent = 'Reading...';
 
-  speak(card.question, () => startAnswerCountdown());
+  // Add pauses around "blank" for natural delivery
+  const spokenQ = card.question.replace(/blank/gi, '... blank ...');
+  speak(spokenQ, () => startAnswerCountdown());
 }
 
 function startAnswerCountdown() {
@@ -338,11 +341,7 @@ function revealAnswer() {
   }
   answerArea.classList.remove('hidden');
 
-  const toSpeak = card.full_sentence
-    ? card.answer + '. ' + card.full_sentence
-    : card.answer;
-
-  speak(toSpeak, () => enterRatingPhase());
+  speak(card.answer, () => enterRatingPhase());
 }
 
 function enterRatingPhase() {
@@ -363,6 +362,31 @@ function rate(score) {
     if (idx < CARDS.length) showCard();
     else showDone();
   }, 500);
+}
+
+// ── PAUSE ────────────────────────────────────────────────────────────────────
+let paused = false;
+
+function togglePause() {
+  const btn = document.getElementById('pause-btn');
+  if (!paused) {
+    // Pause
+    paused = true;
+    window.speechSynthesis.cancel();
+    clearInterval(countdownTimer);
+    cdEl.textContent = '⏸';
+    statusEl.textContent = 'Paused';
+    btn.textContent = '▶ Resume';
+    btn.style.borderColor = '#60a5fa';
+    btn.style.color = '#93c5fd';
+  } else {
+    // Resume — re-read the current card from the top
+    paused = false;
+    btn.textContent = '⏸ Pause';
+    btn.style.borderColor = '#374151';
+    btn.style.color = '#9ca3af';
+    showCard();
+  }
 }
 
 // ── DONE ──────────────────────────────────────────────────────────────────────

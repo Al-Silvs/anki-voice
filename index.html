@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Anki Voice · 2026-06-21</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #111827; color: #f9fafb;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+body {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 24px 20px; min-height: 100vh;
+}
+#progress { position: fixed; top: 18px; right: 20px; font-size: 13px; color: #6b7280; }
+#deck-label { position: fixed; top: 18px; left: 20px; font-size: 13px; color: #6b7280; }
+#mic-status {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: #4b5563; letter-spacing: 1px;
+}
+#status {
+  font-size: 13px; color: #9ca3af; text-transform: uppercase;
+  letter-spacing: 2px; margin-bottom: 14px; min-height: 20px; text-align: center;
+}
+#countdown {
+  font-size: 52px; font-weight: 700; color: #fbbf24;
+  margin-bottom: 10px; min-height: 60px; text-align: center;
+}
+#card-text {
+  font-size: 22px; line-height: 1.6; text-align: center;
+  margin-bottom: 24px; max-width: 580px; min-height: 72px;
+}
+.blank-word { color: #fbbf24; font-weight: 700; }
+#answer-area { min-height: 52px; margin-bottom: 24px; text-align: center; }
+#answer-label { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+#answer-text { font-size: 26px; color: #34d399; font-weight: 700; }
+#full-sentence { font-size: 15px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+#heard-text { font-size: 13px; color: #4b5563; margin-top: 8px; font-style: italic; min-height: 20px; }
+.hidden { display: none !important; }
+
+/* Rating buttons — huge for driving */
+.rating-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  width: 100%; max-width: 440px;
+}
+.rbtn {
+  border-radius: 20px; padding: 44px 10px; font-size: 24px;
+  font-weight: 700; cursor: pointer; border: none; position: relative;
+}
+.rbtn span.key { display: block; font-size: 12px; opacity: 0.6; margin-top: 4px; font-weight: 400; }
+.rbtn.again { background: #7f1d1d; color: #fca5a5; }
+.rbtn.hard  { background: #78350f; color: #fcd34d; }
+.rbtn.good  { background: #14532d; color: #86efac; }
+.rbtn.easy  { background: #1e3a5f; color: #93c5fd; }
+.rbtn:active { filter: brightness(1.4); }
+.rbtn.lit   { filter: brightness(1.5); transform: scale(1.03); transition: all 0.1s; }
+
+/* Start screen */
+#start-screen {
+  position: fixed; inset: 0; background: #111827;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 20px; z-index: 100; cursor: pointer;
+}
+#start-screen h1 { font-size: 28px; }
+#start-screen p { color: #9ca3af; font-size: 15px; text-align: center; max-width: 300px; line-height: 1.7; }
+#start-btn {
+  background: #1d4ed8; color: white; border: none; border-radius: 20px;
+  padding: 28px 64px; font-size: 26px; font-weight: 700; cursor: pointer; margin-top: 8px;
+}
+#done-screen {
+  display: none; flex-direction: column; align-items: center; text-align: center; gap: 16px;
+}
+#done-screen h2 { font-size: 30px; }
+#done-stats { color: #9ca3af; font-size: 16px; line-height: 1.7; }
+.btn {
+  background: #1f2937; color: #f9fafb; border: 2px solid #374151;
+  border-radius: 18px; padding: 22px 32px; font-size: 20px;
+  width: 100%; max-width: 420px; cursor: pointer; margin-bottom: 14px;
+}
+.btn.primary { border-color: #60a5fa; color: #93c5fd; }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>🎧 Anki Voice</h1>
+  <p>RC Review · 66 cards<br><br>
+     Connect Bluetooth first.<br>
+     One tap to start — fully voice-controlled after that.<br><br>
+     Say <strong>again · hard · good · easy</strong> to rate each card.</p>
+  <button id="start-btn" onclick="startSession()">TAP TO START</button>
+</div>
+
+<div id="deck-label">rc review</div>
+<div id="progress"></div>
+<div id="mic-status"></div>
+
+<div id="main-screen" style="display:none;width:100%;max-width:500px;flex-direction:column;align-items:center">
+  <div id="status"></div>
+  <div id="countdown"></div>
+  <div id="card-text"></div>
+  <div id="answer-area" class="hidden">
+    <div id="answer-label">Answer</div>
+    <div id="answer-text"></div>
+    <div id="full-sentence"></div>
+  </div>
+  <div id="heard-text"></div>
+  <div class="rating-grid hidden" id="rating-grid">
+    <button class="rbtn again" id="rb1" onclick="rate(1)">Again<span class="key">say "again"</span></button>
+    <button class="rbtn hard"  id="rb2" onclick="rate(2)">Hard<span class="key">say "hard"</span></button>
+    <button class="rbtn good"  id="rb3" onclick="rate(3)">Good<span class="key">say "good"</span></button>
+    <button class="rbtn easy"  id="rb4" onclick="rate(4)">Easy<span class="key">say "easy"</span></button>
+  </div>
+</div>
+
+<div id="done-screen">
+  <h2>Done ✓</h2>
+  <div id="done-stats"></div>
+  <button class="btn primary" onclick="downloadRatings()">⬇ Save Ratings</button>
+  <p style="color:#6b7280;font-size:13px;max-width:320px;margin-top:8px">
+    Move the downloaded file to your Google Drive Flashcards folder,
+    then run <strong>sync_ratings.py</strong> on your PC with Anki open.
+  </p>
+</div>
+
+<script>
+const CARDS = [{"id": 1756985435487, "question": "MAO-A is present in blank and blank", "answer": "presynaptic dopaminergic neurons, microglia", "full_sentence": "MAO-A is present in presynaptic dopaminergic neurons and microglia", "extra": "", "is_cloze": true}, {"id": 1756989081778, "question": "Risk factors for levodopa-induced dyskinesia (4): blank Higher levodopa dose Severe parkinson's symptoms", "answer": "Young age at symptom onset, low body weight", "full_sentence": "Risk factors for levodopa-induced dyskinesia (4): Young age at symptom onset, low body weight Higher levodopa dose Severe parkinson's symptoms", "extra": "", "is_cloze": true}, {"id": 1757791666843, "question": "Parkinson's incidence", "answer": "20/100,000", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1757793998814, "question": "5 supportive criteria for PD diagnosis 2 related to treatmentTwo symptomsOne autonomic", "answer": "Clear benefit from dopaminergic therapyLevodopa-induced dyskinesiaRest tremor in limbOlfactory lossCardiac sympathetic denervation", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1759691215306, "question": "Indications for DBS in PD (3)", "answer": "Disabling \"off\" state >20% of the day while awakeTroublesome dyskinesias despite optimizationInadequately controlled severe tremor", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1767878388472, "question": "Conditions with both clinical and electrical myotonia (4)", "answer": "DM1DM2Schwartz-JampelMyotonia congenita", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1767878434595, "question": "DM1 genetics", "answer": "Autosomal dominant mutation in myotonic dystrophy protein kinase (DMPK) gene, CTG (\"continues to grasp\") repeat", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1767879478353, "question": "Genetics of DM2", "answer": "Expansion of CCTG tetramer encoding nucleic acid binding protein", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1771784928904, "question": "Risk factors for levodopa-induced dyskinesia (4): Young age at symptom onset, low body weight blank Severe parkinson's symptoms", "answer": "Higher levodopa dose", "full_sentence": "Risk factors for levodopa-induced dyskinesia (4): Young age at symptom onset, low body weight Higher levodopa dose Severe parkinson's symptoms", "extra": "", "is_cloze": true}, {"id": 1771784943587, "question": "Risk factors for levodopa-induced dyskinesia (4): Young age at symptom onset, low body weight Higher levodopa dose blank", "answer": "Severe parkinson's symptoms", "full_sentence": "Risk factors for levodopa-induced dyskinesia (4): Young age at symptom onset, low body weight Higher levodopa dose Severe parkinson's symptoms", "extra": "", "is_cloze": true}, {"id": 1771787068048, "question": "Inheritance of TSC", "answer": "75% sporadic, autosomal dominant if inherited", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1773923036457, "question": "Characteristic seizure types with Lennox-Gastaut", "answer": "Tonic seizures", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1773923404777, "question": "Clobazam metabolites accumulate with blank inhibitors", "answer": "CYP2C19", "full_sentence": "Clobazam metabolites accumulate with CYP2C19 inhibitors", "extra": "n-desmethylclobazam", "is_cloze": true}, {"id": 1773923651484, "question": "Chronic AEs of phenobarb", "answer": "ADD THIS", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1773924266944, "question": "Long-term side effects of phenytoin", "answer": "Osteopenia, gingival hyperplasia, neuropathy", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1774141188107, "question": "Recurrence rate for lobar ICH", "answer": "5.5%", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1774141276149, "question": "The two-month risk of ICH in patients with transient focal neurological episodes/amyloid spells is blank", "answer": "38%", "full_sentence": "The two-month risk of ICH in patients with transient focal neurological episodes/amyloid spells is 38%", "extra": "", "is_cloze": true}, {"id": 1774141409715, "question": "Probable CAA by modified Boston criteria", "answer": "Over age 55 with multiple hemorrhages in characteristic locations OR single hemorrhage and superficial siderosis", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309242625, "question": "Age of onset for Duchenne's", "answer": "2-3 years", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309295515, "question": "The most involved muscle in Duchenne's is the blank", "answer": "adductor magnus", "full_sentence": "The most involved muscle in Duchenne's is the adductor magnus", "extra": "", "is_cloze": true}, {"id": 1781309311794, "question": "Muscles that are generally spared in DMD", "answer": "Gracilis, sartorius", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309348782, "question": "3 key exam findings in Duchenne's", "answer": "Gower's sign, calf pseudohypertrophy, neck flexion weakness", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309403658, "question": "Major cardiac abnormalities with DMD (3)", "answer": "Primary dilated cardiomyopathy, mitral regurgitation, conduction abnormalities", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309439523, "question": "Classic EKG abnormalities in Duchenne's", "answer": "Short PR interval, RVH, deep q waves", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309469278, "question": "Two nonmuscular/cardiac manifestations of Duchenne's", "answer": "Cognitive impairment, night blindness", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309495513, "question": "Two orthopedic manifestations of Duchenne's", "answer": "Progressive scoliosis, contractures (esp Achilles tendon)", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309575266, "question": "In DMD, CK is >10x normal at a peak age of blank", "answer": "2-3 years", "full_sentence": "In DMD, CK is >10x normal at a peak age of 2-3 years", "extra": "Declines afterwards", "is_cloze": true}, {"id": 1781309575267, "question": "In DMD, CK is blank normal at a peak age of 2-3 years", "answer": "&gt;10x", "full_sentence": "In DMD, CK is >10x normal at a peak age of 2-3 years", "extra": "Declines afterwards", "is_cloze": true}, {"id": 1781309691326, "question": "In DMD, glucocorticoids should be started at age blank and blank", "answer": "4 or older, before there is physical decline", "full_sentence": "In DMD, glucocorticoids should be started at age 4 or older and before there is physical decline", "extra": "Benefits strength, pulm function, prolongs walking, reduces risk of scoliosis", "is_cloze": true}, {"id": 1781309711465, "question": "Prednisone dose for DMD", "answer": "0.75 mg/kg/day", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309805104, "question": "Cardiac monitoring suggested for DMD patients", "answer": "EKG + echo at diagnosis, then every year minimum", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309840404, "question": "An blank should be started in all Duchenne's patients at age blank for LVH", "answer": "ACEi or ARB, 10", "full_sentence": "An ACEi or ARB should be started in all Duchenne's patients at age 10 for LVH", "extra": "", "is_cloze": true}, {"id": 1781309954381, "question": "Becker's vs Duchenne's genetics", "answer": "Both x-linked recessive in DMD gene, DMD --> frameshift mutation, BMD --> frame is preserved", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781309983050, "question": "The onset of symptoms in Becker's MD is usually at age blank", "answer": "7 or older", "full_sentence": "The onset of symptoms in Becker's MD is usually at age 7 or older", "extra": "", "is_cloze": true}, {"id": 1781310000535, "question": "Becker's MD has blank cardiac involvement compared to DMD", "answer": "more prominent", "full_sentence": "Becker's MD has more prominent cardiac involvement compared to DMD", "extra": "", "is_cloze": true}, {"id": 1781310097496, "question": "FSHD genetics/pathogenesis", "answer": "Complex, involves expression of DUX4 gene in microsatellite arrays with repeat units (D4Z4)", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310150755, "question": "Muscles involved in FSHD", "answer": "Facial, scapular, upper arm, LOWER leg, abdomen", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310184374, "question": "The blank muscles are generally spared in FSHD", "answer": "deltoids and forearm", "full_sentence": "The deltoids and forearm muscles are generally spared in FSHD", "extra": "", "is_cloze": true}, {"id": 1781310238765, "question": "Classic clinical sign of FSHD on exam", "answer": "\"Polyhill sign\" from weakness of rhomboids/serratus", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310297222, "question": "Ophthalmic manifestations of FSHD", "answer": "Retinal vasculopathy in 50-75% (telangectasia and microaneurysms)", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310347885, "question": "Coat's disease", "answer": "Rare (1%) manifestation of FSHD with retinal telangiectasia and exudate --> retinal detachment and visual loss", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310383907, "question": "EMG in FSHD", "answer": "Myopathic MUPs with occasional irritability", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310401382, "question": "Prognosis of FSHD", "answer": "~20% require wheelchair, normal life expectancy", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310449507, "question": "Genetics of most common form of EMD", "answer": "X-linked recessive in EMD gene", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310491097, "question": "Symptom onset in EMD", "answer": "First or second decade", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781310584365, "question": "Clinical triad of symptoms in EMD", "answer": "Joint contractures: prominent early (elbow flexors!)Slowly progressive weakness: in biceps/triceps and peroneal musclesDilated cardiomyopathy with atrioventricular conduction abnormalities", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781352731939, "question": "Prognosis of EMD", "answer": "Slow progression to age 30, then more rapidly, often require wheelchair later HIGH RISK FOR SCD", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781352832280, "question": "Genetics of OPMD", "answer": "Autosomal dominant, GC[N] trinucleotide repeat (12-17 is pathogenic)", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781352888941, "question": "Onset/presentation of OPMD", "answer": "Asymmetric ptosis --> EOM weakness, other bulbar sx, proximal limb weakness Usually in middle age >45 years", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781352925558, "question": "Histological changes in OPMD", "answer": "Tubular filaments in intranuclear inclusions, rimmed cytoplasmic vacuoles", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781352945990, "question": "OPMD prognosis", "answer": "Normal lifespan, may need wheelchair late in life", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353063237, "question": "LGMD usually spares blank", "answer": "facial and extraocular muscles", "full_sentence": "LGMD usually spares facial and extraocular muscles", "extra": "", "is_cloze": true}, {"id": 1781353168487, "question": "Most common genetics for LGMD", "answer": "Autosomal recessive (85%)", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353213371, "question": "blank LGMDs have onset during adulthood; blank LGMDs have onset during childhood", "answer": "Autosomal dominant, autosomal recessive", "full_sentence": "Autosomal dominant LGMDs have onset during adulthood; autosomal recessive LGMDs have onset during childhood", "extra": "", "is_cloze": true}, {"id": 1781353299443, "question": "LGMD R1 genetics (most common form)", "answer": "AR mutation in CAPN3", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353354443, "question": "Clinical presentation of LGMD R1", "answer": "Shoulder/pelvic weakness in childhood-adolescence (6-18), early contractures, require wheelchair at age 20-40", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353408878, "question": "Presentation of LGMD R2", "answer": "Milder than LGMD R1, average onset 19-27 years Prominent gastrocnemius weakness", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353502517, "question": "4 distal muscular dystrophies", "answer": "Nonaka --> AR, in anterior legs Miyoshi 1/3 --> AR, in posterior legs Laing --> AD, in anterior legs and neck flexors", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353622475, "question": "Distinguishing features of central vs peripheral neonatal hypotonia", "answer": "Peripheral --> inability to move against gravity (++weak), hyporeflexia Central --> can move against gravity, hyperreflexia or normal", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353729739, "question": "Key issues associated with RYR-1 - related core myopathies", "answer": "High risk of malignant hyperthermia --> potential fatal reaction to anesthetic agents!", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353768382, "question": "Key clinical features of multiminicore myopathies", "answer": "Axial hypotonia, progressive scoliosis, early resp weakness out of proportion", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353922596, "question": "Clinical features of SLONM (sporadic late-onset nemaline myopathy)", "answer": "Generalized and neck weakness, may have cardiac or respiratory complications", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781353972778, "question": "50% of patients with SLONM have blank", "answer": "M protein", "full_sentence": "50% of patients with SLONM have M protein", "extra": "", "is_cloze": true}, {"id": 1781354087870, "question": "Most common form of centronuclear myopathy", "answer": "X-linked myotubular myopathy, severe bulbar/ocular weakness at birth and death before 1 year", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781354249875, "question": "Classic histology of centronuclear myopathy", "answer": "Centralized nuclei, decreased enzyme activity around the periphery", "full_sentence": "", "extra": "", "is_cloze": false}, {"id": 1781355248330, "question": "Agents approved for progressive MS (4)", "answer": "Ocrelizumab (PPMS) Siponimod (active SPMS) Cladribine (active SPMS) MItoxantrone (SPMS, no longer used)", "full_sentence": "", "extra": "", "is_cloze": false}];
+const TOTAL = CARDS.length;
+const ANSWER_SECONDS = 7; // seconds to speak your answer before reveal
+
+let idx = 0, ratings = [];
+let phase = 'idle'; // speaking | answering | revealing | rating
+let rec = null, recActive = false, sessionActive = false;
+let countdownTimer = null, lastTranscript = '';
+
+const statusEl   = document.getElementById('status');
+const cdEl       = document.getElementById('countdown');
+const cardEl     = document.getElementById('card-text');
+const answerArea = document.getElementById('answer-area');
+const answerEl   = document.getElementById('answer-text');
+const fullSentEl = document.getElementById('full-sentence');
+const heardEl    = document.getElementById('heard-text');
+const ratingGrid = document.getElementById('rating-grid');
+const progressEl = document.getElementById('progress');
+const micStatus  = document.getElementById('mic-status');
+const mainScreen = document.getElementById('main-screen');
+const doneScreen = document.getElementById('done-screen');
+const startScr   = document.getElementById('start-screen');
+
+// ── RATING KEYWORDS ───────────────────────────────────────────────────────────
+const RATING_WORDS = {
+  1: ['again','fail','wrong','no','nope','bad','missed'],
+  2: ['hard','difficult','tough','struggle'],
+  3: ['good','okay','ok','yes','correct','right','got it','got'],
+  4: ['easy','perfect','simple','knew it','trivial'],
+};
+
+function detectRating(text) {
+  const t = text.toLowerCase();
+  for (const [score, words] of Object.entries(RATING_WORDS)) {
+    for (const w of words) {
+      if (t.includes(w)) return parseInt(score);
+    }
+  }
+  return null;
+}
+
+// ── SPEECH SYNTHESIS ──────────────────────────────────────────────────────────
+function speak(text, onEnd) {
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.88; u.lang = 'en-US';
+  u.onstart = () => { isSpeakingFlag = true; };
+  u.onend = () => {
+    isSpeakingFlag = false;
+    if (onEnd) onEnd();
+  };
+  setTimeout(() => window.speechSynthesis.speak(u), 120);
+}
+let isSpeakingFlag = false;
+
+// ── CONTINUOUS RECOGNITION ────────────────────────────────────────────────────
+function startRec() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { micStatus.textContent = 'no mic'; return; }
+  if (recActive) return;
+
+  rec = new SR();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = 'en-US';
+  rec.maxAlternatives = 1;
+
+  rec.onstart = () => {
+    recActive = true;
+    micStatus.textContent = '● mic on';
+  };
+
+  rec.onresult = (e) => {
+    if (isSpeakingFlag) return; // ignore while TTS is playing
+    let interim = '', final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) final += t;
+      else interim += t;
+    }
+    const heard = (final || interim).trim();
+    if (!heard) return;
+    lastTranscript = heard;
+
+    if (phase === 'rating') {
+      heardEl.textContent = '"' + heard + '"';
+      const score = detectRating(heard);
+      if (score) {
+        // Flash the button
+        const btnId = 'rb' + score;
+        document.getElementById(btnId).classList.add('lit');
+        setTimeout(() => document.getElementById(btnId).classList.remove('lit'), 300);
+        rate(score);
+      }
+    }
+    // In 'answering' phase we ignore content — user speaks for self-testing
+  };
+
+  rec.onerror = (e) => {
+    recActive = false;
+    micStatus.textContent = '✗ mic error';
+    if (sessionActive && e.error !== 'aborted') {
+      setTimeout(startRec, 1000); // auto-restart
+    }
+  };
+
+  rec.onend = () => {
+    recActive = false;
+    micStatus.textContent = '○ mic off';
+    if (sessionActive) {
+      setTimeout(startRec, 300); // auto-restart
+    }
+  };
+
+  rec.start();
+}
+
+function stopRec() {
+  sessionActive = false;
+  if (rec && recActive) rec.stop();
+}
+
+// ── SESSION START ─────────────────────────────────────────────────────────────
+function startSession() {
+  startScr.style.display = 'none';
+  mainScreen.style.display = 'flex';
+  sessionActive = true;
+
+  // Unlock iOS audio with silent utterance
+  const warmup = new SpeechSynthesisUtterance(' ');
+  warmup.volume = 0;
+  window.speechSynthesis.speak(warmup);
+
+  startRec();
+  setTimeout(showCard, 600);
+}
+
+// ── CARD FLOW ─────────────────────────────────────────────────────────────────
+function renderQuestion(card) {
+  cardEl.innerHTML = card.question.replace(/\bblank\b/gi,
+    '<span class="blank-word">blank</span>');
+}
+
+function updateProgress() {
+  progressEl.textContent = TOTAL > 0 ? `${idx + 1} / ${TOTAL}` : '';
+}
+
+function showCard() {
+  if (idx >= CARDS.length) { showDone(); return; }
+  const card = CARDS[idx];
+  phase = 'speaking';
+  updateProgress();
+  renderQuestion(card);
+  answerArea.classList.add('hidden');
+  ratingGrid.classList.add('hidden');
+  answerEl.textContent = '';
+  fullSentEl.textContent = '';
+  heardEl.textContent = '';
+  cdEl.textContent = '';
+  statusEl.textContent = 'Reading...';
+
+  speak(card.question, () => startAnswerCountdown());
+}
+
+function startAnswerCountdown() {
+  phase = 'answering';
+  let secs = ANSWER_SECONDS;
+  cdEl.textContent = secs;
+  statusEl.textContent = 'Your answer...';
+
+  countdownTimer = setInterval(() => {
+    secs--;
+    if (secs <= 0) {
+      clearInterval(countdownTimer);
+      cdEl.textContent = '';
+      revealAnswer();
+    } else {
+      cdEl.textContent = secs;
+    }
+  }, 1000);
+}
+
+function revealAnswer() {
+  const card = CARDS[idx];
+  phase = 'revealing';
+  statusEl.textContent = 'Answer:';
+  answerEl.textContent = card.answer;
+  if (card.full_sentence && card.full_sentence !== card.answer) {
+    fullSentEl.textContent = card.full_sentence;
+  }
+  answerArea.classList.remove('hidden');
+
+  const toSpeak = card.full_sentence
+    ? card.answer + '. ' + card.full_sentence
+    : card.answer;
+
+  speak(toSpeak, () => enterRatingPhase());
+}
+
+function enterRatingPhase() {
+  phase = 'rating';
+  statusEl.textContent = 'Say: again · hard · good · easy';
+  heardEl.textContent = '';
+  ratingGrid.classList.remove('hidden');
+  speak('Rate it.');
+}
+
+function rate(score) {
+  if (phase !== 'rating') return;
+  phase = 'idle';
+  clearInterval(countdownTimer);
+  ratings.push({ id: CARDS[idx].id, score, rated_at: new Date().toISOString() });
+  idx++;
+  setTimeout(() => {
+    if (idx < CARDS.length) showCard();
+    else showDone();
+  }, 500);
+}
+
+// ── DONE ──────────────────────────────────────────────────────────────────────
+function showDone() {
+  stopRec();
+  mainScreen.style.display = 'none';
+  doneScreen.style.display = 'flex';
+  const counts = [1,2,3,4].map(s => ratings.filter(r=>r.score===s).length);
+  document.getElementById('done-stats').innerHTML =
+    `<strong>${ratings.length}</strong> cards reviewed<br>` +
+    `Again: ${counts[0]} · Hard: ${counts[1]} · Good: ${counts[2]} · Easy: ${counts[3]}`;
+  speak(`Session complete. ${ratings.length} cards reviewed.`);
+}
+
+function downloadRatings() {
+  const fn = 'ratings_' + new Date().toISOString().slice(0,10) + '.json';
+  const blob = new Blob([JSON.stringify(ratings, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fn;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+</script>
+</body>
+</html>

@@ -93,8 +93,7 @@ body {
      One tap to start — fully voice-controlled after that.<br><br>
      Say <strong>again · hard · good · easy</strong> to rate each card.</p>
   <button id="start-btn" onclick="startSession()">TAP TO START</button>
-  <button onclick="event.stopPropagation();showVoices()" style="margin-top:12px;background:none;border:1px solid #4b5563;color:#9ca3af;border-radius:10px;padding:8px 18px;font-size:13px;cursor:pointer">Show available voices</button>
-  <div id="voice-list" style="color:#d1d5db;font-size:12px;max-height:200px;overflow-y:auto;text-align:left;white-space:pre;display:none;background:#1f2937;padding:10px;border-radius:8px;max-width:320px"></div>
+  <div id="voice-list" style="color:#9ca3af;font-size:11px;text-align:left;white-space:pre-wrap;background:#1f2937;padding:10px;border-radius:8px;max-width:320px;max-height:160px;overflow-y:auto">Loading voices...</div>
 </div>
 
 <div id="deck-label">rc review</div>
@@ -184,20 +183,23 @@ function pickVoice() {
                || null;
 }
 
-// iOS loads voices asynchronously
-window.speechSynthesis.onvoiceschanged = pickVoice;
-pickVoice();
+// Voice loading handled by refreshVoiceDebug below
 
 function showVoices() {
   const voices = window.speechSynthesis.getVoices();
   const el = document.getElementById('voice-list');
   if (!voices.length) {
-    el.textContent = 'No voices loaded yet — tap again in a moment.';
+    el.textContent = 'No voices loaded yet.';
   } else {
-    el.textContent = voices.map((v,i) => i+1+'. '+v.name).join('\n');
+    el.textContent = 'Voices ('+voices.length+'):\n' + voices.map((v,i) => (i+1)+'. '+v.name+(v.localService?' [local]':' [remote]')).join('\n');
   }
-  el.style.display = 'block';
 }
+
+// Auto-display voices on load and after voiceschanged
+function refreshVoiceDebug() { pickVoice(); showVoices(); }
+window.speechSynthesis.onvoiceschanged = refreshVoiceDebug;
+setTimeout(refreshVoiceDebug, 500);
+setTimeout(refreshVoiceDebug, 2000);
 
 function speak(text, onEnd) {
   window.speechSynthesis.cancel();

@@ -93,7 +93,7 @@ body {
      One tap to start — fully voice-controlled after that.<br><br>
      Say <strong>again · hard · good · easy</strong> to rate each card.</p>
   <button id="start-btn" onclick="startSession()">TAP TO START</button>
-  <button onclick="showVoices()" style="margin-top:12px;background:none;border:1px solid #4b5563;color:#9ca3af;border-radius:10px;padding:8px 18px;font-size:13px;cursor:pointer">Show available voices</button>
+  <button onclick="event.stopPropagation();showVoices()" style="margin-top:12px;background:none;border:1px solid #4b5563;color:#9ca3af;border-radius:10px;padding:8px 18px;font-size:13px;cursor:pointer">Show available voices</button>
   <div id="voice-list" style="color:#d1d5db;font-size:12px;max-height:200px;overflow-y:auto;text-align:left;white-space:pre;display:none;background:#1f2937;padding:10px;border-radius:8px;max-width:320px"></div>
 </div>
 

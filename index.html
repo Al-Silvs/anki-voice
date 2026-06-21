@@ -93,6 +93,8 @@ body {
      One tap to start — fully voice-controlled after that.<br><br>
      Say <strong>again · hard · good · easy</strong> to rate each card.</p>
   <button id="start-btn" onclick="startSession()">TAP TO START</button>
+  <button onclick="showVoices()" style="margin-top:12px;background:none;border:1px solid #4b5563;color:#9ca3af;border-radius:10px;padding:8px 18px;font-size:13px;cursor:pointer">Show available voices</button>
+  <div id="voice-list" style="color:#d1d5db;font-size:12px;max-height:200px;overflow-y:auto;text-align:left;white-space:pre;display:none;background:#1f2937;padding:10px;border-radius:8px;max-width:320px"></div>
 </div>
 
 <div id="deck-label">rc review</div>
@@ -170,7 +172,7 @@ function detectRating(text) {
 }
 
 // ── SPEECH SYNTHESIS ──────────────────────────────────────────────────────────
-const PREFERRED_VOICE = 'Jamie (Premium)'; // change to match your downloaded voice name
+const PREFERRED_VOICE = 'Jamie'; // change to match your downloaded voice name
 let selectedVoice = null;
 
 function pickVoice() {
@@ -185,6 +187,19 @@ function pickVoice() {
 // iOS loads voices asynchronously — pick on change and also try immediately
 window.speechSynthesis.onvoiceschanged = pickVoice;
 pickVoice();
+
+function showVoices() {
+  // Trigger voice load if not yet loaded
+  const voices = window.speechSynthesis.getVoices();
+  const el = document.getElementById('voice-list');
+  if (!voices.length) {
+    el.textContent = 'No voices loaded yet — tap again in a moment.';
+  } else {
+    el.textContent = voices.map((v,i) => `${i+1}. ${v.name}`).join('
+');
+  }
+  el.style.display = 'block';
+}
 
 function speak(text, onEnd) {
   window.speechSynthesis.cancel();
